@@ -21,6 +21,9 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # A slow macOS runner took 45 minutes on 2026-10-18; a hang fails here
+    # instead of holding CI for GitHub's default of 6 hours.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
       - name: Configure
