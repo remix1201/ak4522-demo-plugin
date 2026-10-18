@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "common/ChipPlugin.h"
 #include "common/Descriptions.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -78,6 +79,28 @@ inline juce::Component* findComponent(juce::Component& parent, const juce::Strin
         }
         if (auto* found = findComponent(*child, componentId)) {
             return found;
+        }
+    }
+    return nullptr;
+}
+
+// Updates an open editor from the parameters now, as its timer would.
+inline void poll(juce::AudioProcessorEditor& editor)
+{
+    auto* polling = dynamic_cast<ak4522demo::ParameterPolling*>(&editor);
+    REQUIRE(polling != nullptr);
+    polling->pollParameters();
+}
+
+// The control of type T in the editor row for a parameter, or nullptr.
+template <typename T>
+T* control(juce::Component& editor, const juce::String& parameterId)
+{
+    if (auto* row = findComponent(editor, parameterId)) {
+        for (auto* child : row->getChildren()) {
+            if (auto* c = dynamic_cast<T*>(child)) {
+                return c;
+            }
         }
     }
     return nullptr;

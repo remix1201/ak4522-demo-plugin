@@ -32,7 +32,7 @@ Last substantive update: 2026-10-18. Library: ak4522 `v0.1.0`. JUCE: 9.0.4.
 - **Purpose:** host audio through the emulated chip (REQ-VST-01, REQ-VST-02, REQ-LAT-03 in the library's AGENTS.md).
 - **Status:** implemented.
 - **Usage:** insert on a stereo track. Choose the DAC rate, input resolution, path (DAC, DAC into ADC, or ADC), profile, and analog options; automate de-emphasis and soft mute. All parameters: [parameters.md](parameters.md).
-- **Validation** (`ak4522_demo_effect_tests`, 18 test cases, all passing):
+- **Validation** (`ak4522_demo_effect_tests`, 20 test cases, all passing):
   - stereo-only layouts;
   - reported latency against the emitted audio on all three paths at 44.1, 48, and 96 kHz hosts, by the phase of a 1 kHz tone, within 0.05 sample;
   - bypass, both the parameter and the host's, equal to the input delayed by the reported latency;
@@ -47,7 +47,7 @@ Last substantive update: 2026-10-18. Library: ak4522 `v0.1.0`. JUCE: 9.0.4.
   - silence and a status line at an unsupported host rate;
   - re-preparation after a configuration change;
   - the declared tail covering the impulse response to -120 dB, and an infinite tail with noise;
-  - parameter descriptions and groups, the analog group greyed out under Specification, DC offset greyed out on the ADC path, the version line, and the editor opening (see below).
+  - parameter descriptions and groups, the analog group greyed out under Specification, DC offset greyed out on the ADC path, the version line, the editor opening, and the editor polling rather than listening (see below).
 
   Also passing: pluginval at strictness level 10 (VST3 and AU), and `auval -strict`. pluginval's one AU warning, "Current program is -1", reflects that the plugins have no factory presets.
 - **Limitations:**
@@ -90,7 +90,8 @@ Last substantive update: 2026-10-18. Library: ak4522 `v0.1.0`. JUCE: 9.0.4.
   - [parameters.md](parameters.md#what-each-control-does) carries the same wording, with links to the library's documentation at `v0.1.0`.
   - The editor greys out controls that do nothing with the current settings, and says why in their tooltips: the "Analog imperfections" group under the Specification profile, and, in the AK4522 DAC, DC offset when Path is ADC. Each plugin decides this in `inactiveReason()`. Values are kept.
   - The editor is the plugins' own small one: it replaces JUCE's generic editor, which has no tooltips, and keeps the host's right-click menu for each parameter.
-- **Validation:** a test in each test program checks that every parameter is in a group, has a description, and appears in `docs/parameters.md` with the same wording and origin, and that the editor opens. Changing one word in the docs fails the test. Others check that the analog group is greyed out under Specification and active under NominalAnalog, and that the effect's DC offset is greyed out on the ADC path only; making either always active fails its test. pluginval at strictness level 10 (VST3 and AU) and `auval -strict` pass on macOS.
+  - Like JUCE's generic editor, it registers no parameter listeners: a timer reads the parameters 30 times a second on the message thread. A listener would run on the audio thread under automation, and JUCE's attachments post messages from there, which may block. Edits reach the host as complete change gestures, from the message thread only.
+- **Validation:** a test in each test program checks that every parameter is in a group, has a description, and appears in `docs/parameters.md` with the same wording and origin, and that the editor opens. Changing one word in the docs fails the test. Others check that the analog group is greyed out under Specification and active under NominalAnalog, and that the effect's DC offset is greyed out on the ADC path only; making either always active fails its test. Two more check that the editor shows values changed on another thread only when it polls, so a listener added back fails the test, and that edits in the editor reach the parameters with one complete gesture each. pluginval at strictness level 10 (VST3 and AU) and `auval -strict` pass on macOS.
 - **Limitations:** tooltips have not been checked in a host. Parameter IDs and saved state are unchanged, so the schema stays at 1.
 - **Updated:** 2026-10-18.
 

@@ -15,17 +15,22 @@ namespace {
 
 constexpr const char* stateType = "AK4522DemoState";
 
-// One parameter: its name, a control bound to it, and its description as a
+// One parameter: its name, a control for it, and its description as a
 // tooltip. A right click outside the control opens the host's menu for it.
+//
+// The row registers no parameter listener. A listener runs on whichever
+// thread changes the value, often the audio thread under automation, and
+// JUCE's attachments post a message from there, which may block. Instead the
+// editor's timer calls poll() on the message thread, as JUCE's generic
+// editor does; edits go to the host from the message thread only.
 class ParameterRow : public juce::Component, public juce::SettableTooltipClient {
 public:
     ParameterRow(juce::AudioProcessorEditor& editor, juce::RangedAudioParameter& parameter)
         : editor_(editor), parameter_(parameter)
     {
         setComponentID(parameter.getParameterID());
-        const auto tooltip = tooltipFor(parameter.getParameterID());
-        tooltip_ = tooltip;
-        setTooltip(tooltip);
+        tooltip_ = tooltipFor(parameter.getParameterID());
+        setTooltip(tooltip_);
         name_.setText(parameter.getName(64), juce::dontSendNotification);
         name_.setJustificationType(juce::Justification::centredRight);
         name_.setInterceptsMouseClicks(false, false);
@@ -33,35 +38,79 @@ public:
 
         if (parameter.isBoolean()) {
             auto toggle = std::make_unique<juce::ToggleButton>();
-            toggle->setTooltip(tooltip);
+            toggle->onClick = [this, t = toggle.get()] { edit(t->getToggleState() ? 1.0f : 0.0f); };
             controlTip_ = toggle.get();
-            button_ = std::make_unique<juce::ButtonParameterAttachment>(parameter, *toggle);
+            toggle_ = toggle.get();
             control_ = std::move(toggle);
         } else if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(&parameter)) {
             auto box = std::make_unique<juce::ComboBox>();
             box->addItemList(choice->choices, 1);
-            box->setTooltip(tooltip);
+            box->onChange = [this, b = box.get()] {
+                edit(parameter_.convertTo0to1(static_cast<float>(b->getSelectedItemIndex())));
+            };
             controlTip_ = box.get();
-            comboBox_ = std::make_unique<juce::ComboBoxParameterAttachment>(parameter, *box);
+            comboBox_ = box.get();
             control_ = std::move(box);
         } else {
+            // The slider works in the parameter's normalized range, so the
+            // parameter's own skew and steps apply.
             auto slider = std::make_unique<juce::Slider>(juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight);
-            slider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 80, 22);
-            slider->setTooltip(tooltip);
+            slider->setTextBoxStyle(juce::Slider::TextBoxRight, false, 90, 22);
+            slider->setRange(0.0, 1.0);
+            const auto suffix = parameter.getLabel().isEmpty() ? juce::String() : " " + parameter.getLabel();
+            slider->textFromValueFunction = [this, suffix](double v) {
+                return parameter_.getText(static_cast<float>(v), 0) + suffix;
+            };
+            slider->valueFromTextFunction = [this, suffix](const juce::String& text) {
+                return static_cast<double>(parameter_.getValueForText(text.upToLastOccurrenceOf(suffix, false, false)));
+            };
+            slider->setDoubleClickReturnValue(true, parameter.getDefaultValue());
+            slider->onDragStart = [this] { parameter_.beginChangeGesture(); };
+            slider->onDragEnd = [this] { parameter_.endChangeGesture(); };
+            slider->onValueChange = [this, sl = slider.get()] {
+                const auto snapped = parameter_.convertTo0to1(
+                    parameter_.convertFrom0to1(static_cast<float>(sl->getValue())));
+                if (sl->isMouseButtonDown()) {
+                    parameter_.setValueNotifyingHost(snapped); // inside the drag's gesture
+                } else {
+                    edit(snapped); // typed text, a double click, or the keyboard
+                }
+            };
             controlTip_ = slider.get();
-            slider_ = std::make_unique<juce::SliderParameterAttachment>(parameter, *slider);
-            if (parameter.getLabel().isNotEmpty()) {
-                slider->setTextValueSuffix(" " + parameter.getLabel());
-            }
+            slider_ = slider.get();
             control_ = std::move(slider);
         }
+        controlTip_->setTooltip(tooltip_);
         addAndMakeVisible(*control_);
+        poll();
+    }
+
+    // Shows the parameter's current value. Message thread.
+    void poll()
+    {
+        const float value = parameter_.getValue();
+        if (juce::exactlyEqual(value, shown_)) {
+            return;
+        }
+        shown_ = value;
+        if (toggle_ != nullptr) {
+            toggle_->setToggleState(value >= 0.5f, juce::dontSendNotification);
+        } else if (comboBox_ != nullptr) {
+            comboBox_->setSelectedItemIndex(juce::roundToInt(parameter_.convertFrom0to1(value)),
+                                            juce::dontSendNotification);
+        } else if (!slider_->isMouseButtonDown()) {
+            slider_->setValue(value, juce::dontSendNotification);
+        }
     }
 
     // Greys the row out when the parameter has no effect, and says why in
     // the tooltip. The value is kept.
     void setActive(bool active, const juce::String& whyInactive)
     {
+        if (active == isEnabled() && whyInactive == whyInactive_) {
+            return;
+        }
+        whyInactive_ = whyInactive;
         setEnabled(active);
         const auto tip = active ? tooltip_ : tooltip_ + "\n" + whyInactive;
         setTooltip(tip);
@@ -93,16 +142,26 @@ public:
     static constexpr int nameWidth = 150;
 
 private:
+    // One complete change, as a host expects it from a click.
+    void edit(float normalized)
+    {
+        parameter_.beginChangeGesture();
+        parameter_.setValueNotifyingHost(normalized);
+        parameter_.endChangeGesture();
+    }
+
     juce::AudioProcessorEditor& editor_;
     juce::RangedAudioParameter& parameter_;
     juce::Label name_;
     juce::String tooltip_;
+    juce::String whyInactive_;
+    float shown_ = -1.0f; // the value the control shows; -1 forces the first update
     std::unique_ptr<juce::Component> control_;
     juce::SettableTooltipClient* controlTip_ = nullptr;
-    // One of these binds the control to the parameter.
-    std::unique_ptr<juce::ButtonParameterAttachment> button_;
-    std::unique_ptr<juce::ComboBoxParameterAttachment> comboBox_;
-    std::unique_ptr<juce::SliderParameterAttachment> slider_;
+    // Exactly one of these is the control.
+    juce::ToggleButton* toggle_ = nullptr;
+    juce::ComboBox* comboBox_ = nullptr;
+    juce::Slider* slider_ = nullptr;
 };
 
 // The parameters in their groups, one heading per group, in layout order.
@@ -135,14 +194,22 @@ public:
             h += dynamic_cast<ParameterRow*>(item.get()) != nullptr ? ParameterRow::height : headingHeight;
         }
         setSize(width, h);
+        poll();
+    }
 
-        // Any parameter may change whether another one has an effect.
-        for (auto* parameter : editor.processor.getParameters()) {
-            if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(parameter)) {
-                watches_.push_back(std::make_unique<juce::ParameterAttachment>(*ranged, [this](float) { refresh(); }));
+    // Shows current values and which rows have an effect. Message thread.
+    void poll()
+    {
+        for (auto& section : sections_) {
+            bool anyActive = section.rows.empty();
+            for (auto* row : section.rows) {
+                row->poll();
+                const auto reason = plugin_.inactiveReason(row->getComponentID());
+                row->setActive(reason.isEmpty(), reason);
+                anyActive = anyActive || reason.isEmpty();
             }
+            section.heading->setEnabled(anyActive);
         }
-        refresh();
     }
 
     void resized() override
@@ -178,27 +245,14 @@ private:
         return added;
     }
 
-    void refresh()
-    {
-        for (auto& section : sections_) {
-            bool anyActive = false;
-            for (auto* row : section.rows) {
-                const auto reason = plugin_.inactiveReason(row->getComponentID());
-                row->setActive(reason.isEmpty(), reason);
-                anyActive = anyActive || reason.isEmpty();
-            }
-            section.heading->setEnabled(anyActive || section.rows.empty());
-        }
-    }
-
     const ChipPlugin& plugin_;
     std::vector<std::unique_ptr<juce::Component>> items_;
     std::vector<Section> sections_;
-    std::vector<std::unique_ptr<juce::ParameterAttachment>> watches_; // last: destroyed first
 };
 
-// The status line above the grouped controls.
-class StatusEditor : public juce::AudioProcessorEditor, private juce::Timer {
+// The status line, the grouped controls, and the version line. One timer
+// polls the parameters and the status.
+class StatusEditor : public juce::AudioProcessorEditor, public ParameterPolling, private juce::Timer {
 public:
     explicit StatusEditor(ChipPlugin& plugin) : AudioProcessorEditor(plugin), plugin_(plugin), list_(*this, plugin)
     {
@@ -217,7 +271,13 @@ public:
         const int scrollBar = view_.getScrollBarThickness();
         setSize(ParameterList::width + scrollBar,
                 statusHeight + std::min(list_.getHeight(), maxListHeight) + versionHeight);
-        startTimerHz(4);
+        startTimerHz(30);
+    }
+
+    void pollParameters() override
+    {
+        list_.poll();
+        status_.setText(plugin_.statusText(), juce::dontSendNotification);
     }
 
     void resized() override
@@ -239,7 +299,7 @@ private:
     static constexpr int maxListHeight = 560;
     static constexpr int versionHeight = 22;
 
-    void timerCallback() override { status_.setText(plugin_.statusText(), juce::dontSendNotification); }
+    void timerCallback() override { pollParameters(); }
 
     ChipPlugin& plugin_;
     juce::Label status_;
@@ -316,12 +376,6 @@ std::unique_ptr<juce::AudioProcessorParameterGroup> ChipPlugin::pluginGroup()
 float ChipPlugin::parameterValue(const char* parameterId) const noexcept
 {
     return state_.getRawParameterValue(parameterId)->load(std::memory_order_relaxed);
-}
-
-float ChipPlugin::currentValue(const char* parameterId) const
-{
-    const auto* parameter = state_.getParameter(parameterId);
-    return parameter->convertFrom0to1(parameter->getValue());
 }
 
 ak4522::DacConfig ChipPlugin::chipConfig() const
@@ -494,7 +548,7 @@ juce::String ChipPlugin::inactiveReason(const juce::String& parameterId) const
     const bool analogOption = parameterId == id::noise || parameterId == id::distortion
                               || parameterId == id::mismatch || parameterId == id::crosstalk
                               || parameterId == id::dcOffset;
-    if (analogOption && currentValue(id::profile) < 0.5f) {
+    if (analogOption && parameterValue(id::profile) < 0.5f) {
         return "Inactive: Profile is Specification.";
     }
     return {};

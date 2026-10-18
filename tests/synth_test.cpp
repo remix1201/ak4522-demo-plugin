@@ -228,6 +228,7 @@ TEST_CASE("The analog options are greyed out under the Specification profile")
     std::unique_ptr<juce::AudioProcessorEditor> editor(p->createEditor());
     const std::array<const char*, 6> analog{"analog", "noise", "distortion", "mismatch", "crosstalk", "dcOffset"};
     test::set(*p, "profile", 0.0f); // Specification
+    test::poll(*editor);
     for (const auto* componentId : analog) {
         INFO(componentId);
         auto* c = test::findComponent(*editor, componentId);
@@ -236,6 +237,7 @@ TEST_CASE("The analog options are greyed out under the Specification profile")
     }
     CHECK(test::findComponent(*editor, "outputCircuit")->isEnabled());
     test::set(*p, "profile", 1.0f); // NominalAnalog
+    test::poll(*editor);
     for (const auto* componentId : analog) {
         INFO(componentId);
         CHECK(test::findComponent(*editor, componentId)->isEnabled());

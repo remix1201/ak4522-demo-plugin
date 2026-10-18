@@ -42,6 +42,15 @@ inline constexpr const char* outputGain = "outputGain";
 // meaning change; older state is then rejected, not reinterpreted (REQ-VST-01).
 inline constexpr int schemaVersion = 1;
 
+// The editor reads parameter values on a timer rather than listening, so
+// that nothing it does runs on the audio thread. Tests call pollParameters()
+// to update it at once instead of waiting for the timer. Message thread.
+class ParameterPolling {
+public:
+    virtual ~ParameterPolling() = default;
+    virtual void pollParameters() = 0;
+};
+
 // Base of both plugins. Derived classes add their own parameters through
 // createLayout's `extra`, and implement prepareChip() and the processing.
 class ChipPlugin : public juce::AudioProcessor,
@@ -120,9 +129,6 @@ protected:
     void resetControls() noexcept; // after a prepare: the chip latched the pins
 
     float parameterValue(const char* parameterId) const noexcept;
-    // The parameter's current value from the parameter itself, which is
-    // already updated when its listeners run. Message thread.
-    float currentValue(const char* parameterId) const;
     bool prepared() const noexcept { return prepared_.load(std::memory_order_acquire); }
     void setPrepared(bool ok) noexcept; // from prepareChip(): processing may run
 
