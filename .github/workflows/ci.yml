@@ -5,8 +5,11 @@
 # section 3). The AU checks run on macOS only.
 name: CI
 
+# Pushes to main, and every pull request, run once each. Other branches run
+# through a pull request or by hand (workflow_dispatch).
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
