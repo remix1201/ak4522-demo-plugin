@@ -69,6 +69,18 @@ bool EffectProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
            && layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
 }
 
+juce::String EffectProcessor::inactiveReason(const juce::String& parameterId) const
+{
+    if (auto reason = ChipPlugin::inactiveReason(parameterId); reason.isNotEmpty()) {
+        return reason;
+    }
+    const auto path = static_cast<ak4522::HostPath>(static_cast<int>(currentValue(id::path)));
+    if (parameterId == id::dcOffset && path == ak4522::HostPath::adc) {
+        return "Inactive: Path is ADC, and the ADC has no DC offset.";
+    }
+    return {};
+}
+
 juce::AudioProcessorParameter* EffectProcessor::getBypassParameter() const
 {
     return state_.getParameter(id::bypass);

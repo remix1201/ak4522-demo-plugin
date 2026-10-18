@@ -14,8 +14,6 @@ namespace ak4522demo {
 namespace {
 
 constexpr const char* stateType = "AK4522DemoState";
-// The group of NominalAnalog options, which do nothing under Specification.
-constexpr const char* analogGroup = "analog";
 
 // One parameter: its name, a control bound to it, and its description as a
 // tooltip. A right click outside the control opens the host's menu for it.
@@ -108,9 +106,11 @@ private:
 };
 
 // The parameters in their groups, one heading per group, in layout order.
+// Rows the plugin reports as inactive are greyed out, and so is a heading
+// whose rows all are.
 class ParameterList : public juce::Component {
 public:
-    explicit ParameterList(juce::AudioProcessorEditor& editor)
+    ParameterList(juce::AudioProcessorEditor& editor, const ChipPlugin& plugin) : plugin_(plugin)
     {
         for (const auto* node : editor.processor.getParameterTree()) {
             if (const auto* group = node->getGroup()) {
@@ -118,16 +118,14 @@ public:
                 heading->setFont(juce::FontOptions(15.0f, juce::Font::bold));
                 heading->setComponentID(group->getID());
                 addAndMakeVisible(*heading);
-                const bool analog = group->getID() == analogGroup;
-                if (analog) {
-                    analogHeading_ = heading.get();
-                }
+                Section section{heading.get(), {}};
                 items_.push_back(std::move(heading));
                 for (auto* parameter : group->getParameters(true)) {
-                    if (auto* row = add(editor, *parameter); row != nullptr && analog) {
-                        analogRows_.push_back(row);
+                    if (auto* row = add(editor, *parameter)) {
+                        section.rows.push_back(row);
                     }
                 }
+                sections_.push_back(std::move(section));
             } else if (auto* parameter = node->getParameter()) {
                 add(editor, *parameter);
             }
@@ -138,15 +136,13 @@ public:
         }
         setSize(width, h);
 
-        // The analog options apply only to the NominalAnalog profile.
+        // Any parameter may change whether another one has an effect.
         for (auto* parameter : editor.processor.getParameters()) {
-            if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(parameter);
-                ranged != nullptr && ranged->getParameterID() == id::profile) {
-                profile_ = std::make_unique<juce::ParameterAttachment>(
-                    *ranged, [this](float value) { showAnalogActive(value >= 0.5f); });
-                profile_->sendInitialUpdate();
+            if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(parameter)) {
+                watches_.push_back(std::make_unique<juce::ParameterAttachment>(*ranged, [this](float) { refresh(); }));
             }
         }
+        refresh();
     }
 
     void resized() override
@@ -164,6 +160,11 @@ public:
 private:
     static constexpr int headingHeight = 30;
 
+    struct Section {
+        juce::Label* heading;
+        std::vector<ParameterRow*> rows;
+    };
+
     ParameterRow* add(juce::AudioProcessorEditor& editor, juce::AudioProcessorParameter& parameter)
     {
         auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(&parameter);
@@ -177,26 +178,29 @@ private:
         return added;
     }
 
-    void showAnalogActive(bool active)
+    void refresh()
     {
-        if (analogHeading_ != nullptr) {
-            analogHeading_->setEnabled(active);
-        }
-        for (auto* row : analogRows_) {
-            row->setActive(active, "Inactive: Profile is Specification.");
+        for (auto& section : sections_) {
+            bool anyActive = false;
+            for (auto* row : section.rows) {
+                const auto reason = plugin_.inactiveReason(row->getComponentID());
+                row->setActive(reason.isEmpty(), reason);
+                anyActive = anyActive || reason.isEmpty();
+            }
+            section.heading->setEnabled(anyActive || section.rows.empty());
         }
     }
 
+    const ChipPlugin& plugin_;
     std::vector<std::unique_ptr<juce::Component>> items_;
-    juce::Label* analogHeading_ = nullptr;
-    std::vector<ParameterRow*> analogRows_;
-    std::unique_ptr<juce::ParameterAttachment> profile_; // last: destroyed first
+    std::vector<Section> sections_;
+    std::vector<std::unique_ptr<juce::ParameterAttachment>> watches_; // last: destroyed first
 };
 
 // The status line above the grouped controls.
 class StatusEditor : public juce::AudioProcessorEditor, private juce::Timer {
 public:
-    explicit StatusEditor(ChipPlugin& plugin) : AudioProcessorEditor(plugin), plugin_(plugin), list_(*this)
+    explicit StatusEditor(ChipPlugin& plugin) : AudioProcessorEditor(plugin), plugin_(plugin), list_(*this, plugin)
     {
         status_.setJustificationType(juce::Justification::centredLeft);
         status_.setText(plugin_.statusText(), juce::dontSendNotification);
@@ -285,7 +289,7 @@ void ChipPlugin::addChipParameters(Layout& layout)
     layout.add(std::move(model));
 
     auto analog = std::make_unique<AudioProcessorParameterGroup>(
-        analogGroup, "Analog imperfections (NominalAnalog only)", "|");
+        "analog", "Analog imperfections (NominalAnalog only)", "|");
     analog->addChild(std::make_unique<AudioParameterBool>(ParameterID{id::noise, 1}, "Noise", true));
     analog->addChild(std::make_unique<AudioParameterBool>(ParameterID{id::distortion, 1}, "Distortion", true));
     analog->addChild(std::make_unique<AudioParameterBool>(ParameterID{id::mismatch, 1}, "Channel mismatch", true));
@@ -312,6 +316,12 @@ std::unique_ptr<juce::AudioProcessorParameterGroup> ChipPlugin::pluginGroup()
 float ChipPlugin::parameterValue(const char* parameterId) const noexcept
 {
     return state_.getRawParameterValue(parameterId)->load(std::memory_order_relaxed);
+}
+
+float ChipPlugin::currentValue(const char* parameterId) const
+{
+    const auto* parameter = state_.getParameter(parameterId);
+    return parameter->convertFrom0to1(parameter->getValue());
 }
 
 ak4522::DacConfig ChipPlugin::chipConfig() const
@@ -477,6 +487,17 @@ juce::String ChipPlugin::versionText()
     const auto library = ak4522::versionString();
     return juce::String(JucePlugin_Name) + " " + JucePlugin_VersionString + "  |  ak4522 "
            + juce::String(library.data(), library.size()) + "  |  commit " + build::commit;
+}
+
+juce::String ChipPlugin::inactiveReason(const juce::String& parameterId) const
+{
+    const bool analogOption = parameterId == id::noise || parameterId == id::distortion
+                              || parameterId == id::mismatch || parameterId == id::crosstalk
+                              || parameterId == id::dcOffset;
+    if (analogOption && currentValue(id::profile) < 0.5f) {
+        return "Inactive: Profile is Specification.";
+    }
+    return {};
 }
 
 juce::AudioProcessorEditor* ChipPlugin::createEditor()

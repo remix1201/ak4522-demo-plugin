@@ -73,6 +73,11 @@ public:
     // "AK4522 DAC 0.1.0  |  ak4522 0.1.0  |  commit b129e44".
     static juce::String versionText();
 
+    // Why a parameter has no effect with the current settings, for the
+    // editor, or empty if it has one. The analog options do nothing under
+    // the Specification profile; a plugin adds its own cases.
+    virtual juce::String inactiveReason(const juce::String& parameterId) const;
+
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
     const juce::String getName() const override { return JucePlugin_Name; }
@@ -115,6 +120,9 @@ protected:
     void resetControls() noexcept; // after a prepare: the chip latched the pins
 
     float parameterValue(const char* parameterId) const noexcept;
+    // The parameter's current value from the parameter itself, which is
+    // already updated when its listeners run. Message thread.
+    float currentValue(const char* parameterId) const;
     bool prepared() const noexcept { return prepared_.load(std::memory_order_acquire); }
     void setPrepared(bool ok) noexcept; // from prepareChip(): processing may run
 

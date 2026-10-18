@@ -39,6 +39,8 @@ public:
     void reset() override;
     double getTailLengthSeconds() const override { return tailSeconds_.load(std::memory_order_relaxed); }
     juce::AudioProcessorParameter* getBypassParameter() const override;
+    // Adds: DC offset does nothing on the ADC path, which has no DAC.
+    juce::String inactiveReason(const juce::String& parameterId) const override;
 
 private:
     juce::String prepareChip(double hostRate, int maxBlock) override;

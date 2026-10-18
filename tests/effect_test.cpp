@@ -354,3 +354,22 @@ TEST_CASE("The analog options are greyed out under the Specification profile")
         CHECK(test::findComponent(*editor, componentId)->isEnabled());
     }
 }
+
+TEST_CASE("DC offset is greyed out on the ADC path")
+{
+    auto p = make();
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p->createEditor());
+    test::set(*p, "profile", 1.0f); // NominalAnalog
+    auto* dcOffset = test::findComponent(*editor, "dcOffset");
+    REQUIRE(dcOffset != nullptr);
+    test::set(*p, id::path, 2.0f); // ADC
+    CHECK(!dcOffset->isEnabled());
+    CHECK(p->inactiveReason("dcOffset").contains("ADC"));
+    CHECK(test::findComponent(*editor, "noise")->isEnabled());
+    CHECK(test::findComponent(*editor, "analog")->isEnabled());
+    test::set(*p, id::path, 1.0f); // DAC into ADC: the DAC's offset is modeled
+    CHECK(dcOffset->isEnabled());
+    test::set(*p, id::path, 0.0f); // DAC
+    CHECK(dcOffset->isEnabled());
+    CHECK(p->inactiveReason("dcOffset").isEmpty());
+}

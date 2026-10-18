@@ -17,7 +17,7 @@ Parameter IDs are stable within a state schema. Every parameter has version hint
 | `outputCircuit` | Fig.11 output circuit | off, on                                        | off           | configuration | `exampleOutputCircuit`                              |
 | `outputGain`    | Output gain           | -24 to +12 dB, 0.1 dB steps                    | 0 dB          | host          | after the chip; smoothed over 20 ms                 |
 
-The analog switches only matter with the NominalAnalog profile; with Specification the chip is clean whatever they say. The editor greys them out under Specification and says so in their tooltips. Their values are kept, and hosts can still automate them.
+The analog switches only matter with the NominalAnalog profile; with Specification the chip is clean whatever they say. The editor greys them out under Specification and says so in their tooltips. In the AK4522 DAC it also greys out DC offset when Path is ADC, since that path has no DAC and the ADC model has no DC offset; on DAC into ADC the offset is modeled and the ADC's high-pass filter removes it. Values are kept, and hosts can still automate them.
 
 ## AK4522 DAC (effect)
 
