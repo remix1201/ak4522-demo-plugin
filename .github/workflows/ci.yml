@@ -51,9 +51,18 @@ jobs:
           gh release download "$PLUGINVAL_VERSION" --repo Tracktion/pluginval --pattern pluginval_macOS.zip
           unzip -q pluginval_macOS.zip
           P=pluginval.app/Contents/MacOS/pluginval
+          # pluginval catches a crash itself and exits without a stack trace,
+          # and macOS then writes no crash report. Under lldb the crash stops
+          # the process first, and every thread's stack is printed. lldb exits
+          # 0 whatever the process returns, so success is read from its log.
+          traced() {
+            log=$(mktemp)
+            lldb --batch -o "process launch" -k "thread backtrace all" -k "quit 1" -- "$@" 2>&1 | tee "$log"
+            grep -q "exited with status = 0 (0x00000000)" "$log"
+          }
           for f in "build/AK4522Effect_artefacts/Release/VST3/AK4522 DAC.vst3" \
                    "build/AK4522Synth_artefacts/Release/VST3/AK4522 Synth.vst3"; do
-            "$P" --strictness-level 10 --validate-in-process --validate "$f"
+            traced "$P" --strictness-level 10 --validate-in-process --validate "$f"
           done
           mkdir -p ~/Library/Audio/Plug-Ins/Components
           cp -R "build/AK4522Effect_artefacts/Release/AU/AK4522 DAC.component" \
@@ -62,7 +71,7 @@ jobs:
           auval -strict -v aufx Akfx Ak45
           auval -strict -v aumu Aksy Ak45
           for f in ~/Library/Audio/Plug-Ins/Components/AK4522*.component; do
-            "$P" --strictness-level 10 --validate-in-process --validate "$f"
+            traced "$P" --strictness-level 10 --validate-in-process --validate "$f"
           done
 
       - name: pluginval (Windows)
