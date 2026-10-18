@@ -7,7 +7,7 @@ Two JUCE plugins that show the [ak4522](https://github.com/remix1201/ak4522) lib
 | **AK4522 DAC**   | effect     | `ak4522::HostProcessor`   | Runs host audio through the emulated DAC, the DAC into the ADC, or the ADC alone, at a chosen chip rate |
 | **AK4522 Synth** | instrument | `ak4522::DacStream`       | A small test synth that generates samples at its own clock, such as 112 MHz / 2304, played through the emulated DAC |
 
-**Status: alpha, not released.** Both plugins build and pass their tests, pluginval at strictness level 10, and strict `auval`, on macOS. Windows builds run in CI. Host smoke tests (FL Studio, Ableton Live) are pending. See [docs/features.md](docs/features.md).
+**Status: alpha, not released.** Both plugins build and pass their tests, pluginval at strictness level 10, and strict `auval`, on macOS. Windows builds run in CI. Both plugins open in FL Studio 26.1.7 and Ableton Live 12 Lite 12.4.6; the rest of the host smoke tests are pending. See [docs/features.md](docs/features.md).
 
 Formats: VST3 on macOS and Windows, and AU on macOS. The interface is JUCE's generic parameter editor with a status line showing the configuration and latency.
 

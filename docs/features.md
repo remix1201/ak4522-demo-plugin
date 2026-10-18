@@ -11,7 +11,7 @@ Last substantive update: 2026-10-18. Library: ak4522 `v0.1.0`. JUCE: 9.0.4.
 | Build and packaging        | implemented    | macOS passing; Windows in CI          | not approved | development only |
 | AK4522 DAC (effect)        | implemented    | tests, pluginval, and auval passing   | not approved | development only |
 | AK4522 Synth (instrument)  | implemented    | tests, pluginval, and auval passing   | not approved | development only |
-| Host smoke tests           | planned        | not run                               | not approved | not applicable   |
+| Host smoke tests           | in progress    | both plugins open in FL Studio and Live | not approved | not applicable   |
 
 ## Build and packaging
 
@@ -79,5 +79,13 @@ Last substantive update: 2026-10-18. Library: ak4522 `v0.1.0`. JUCE: 9.0.4.
 ## Host smoke tests
 
 - **Purpose:** the gate in the library's demo plugin section: FL Studio and Ableton Live load both plugins, play, automate, save and reload, and the latency agrees with emitted audio.
-- **Status:** planned; to be run by the project owner.
+- **Status:** in progress; run by the project owner.
+- **Results reported by the project owner:**
+
+  | Host                          | Version                                | AK4522 DAC | AK4522 Synth | Date reported |
+  | ----------------------------- | -------------------------------------- | ---------- | ------------ | ------------- |
+  | FL Studio                     | 26.1.7 [build 5421]                    | opens      | opens        | 2026-10-18    |
+  | Ableton Live 12 Lite          | 12.4.6 (Build: 2026-09-10_0de5c8fa9a)  | opens      | opens        | 2026-10-18    |
+
+- **Not yet reported:** playback, automation, save and reload, and latency against emitted audio, in either host. Plugin format (VST3 or AU) and operating system were not stated.
 - **Updated:** 2026-10-18.
