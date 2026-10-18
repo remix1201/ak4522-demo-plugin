@@ -41,6 +41,68 @@ The analog switches only matter with the NominalAnalog profile; with Specificati
 | `attack`       | Attack        | 1 to 2000 ms                                             | 5 ms    | host          | the test synth                   |
 | `release`      | Release       | 5 to 5000 ms                                             | 200 ms  | host          | the test synth                   |
 
+## What each control does
+
+The editor groups the controls under the bold headings below, each plugin's own groups first and the shared ones after, and shows each description below as the control's tooltip. Each description ends with where the behavior comes from:
+
+- _AK4522 behavior, from the ak4522 library._
+- _From the ak4522 library; not a chip control._
+- _Plugin behavior; not part of the AK4522._
+
+The descriptions are kept in `Source/common/Descriptions.h`; the tests check that this section uses the same wording. Chip and library descriptions are one line; the linked library documentation, at the pinned tag, is the full account. The groups do not change parameter IDs or saved state.
+
+### AK4522 DAC only
+
+**Converter.**
+
+- **DAC rate** (`dacRate`): The chip's sample rate. Host audio is converted to it, passes through the chip, and is converted back to the host rate. _AK4522 behavior, from the ak4522 library._ Library: [Host-rate adaptation](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/features.md#host-rate-adaptation).
+- **Input resolution** (`inputResolution`): The word length host audio is quantized to before the chip: 20-bit, the chip's full input, or 16-bit. _From the ak4522 library; not a chip control._ Library: [PCM mapping and quantization](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/features.md#pcm-mapping-and-quantization).
+- **Input dither** (`inputDither`): Adds TPDF dither before host audio is quantized to the chip's input. _From the ak4522 library; not a chip control._ Library: [Host-rate adaptation](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/features.md#host-rate-adaptation).
+- **Path** (`path`): What host audio passes through: the DAC, the DAC's analog output into the ADC, or the ADC alone. _From the ak4522 library; not a chip control._ Library: [ADC paths in HostProcessor](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/api.md#adc-paths-in-hostprocessor).
+
+### AK4522 Synth only
+
+**Source.**
+
+- **Source clock** (`clock`): The rate at which the test synth's samples reach the DAC. 112 MHz / 2304 is above the datasheet's 48 kHz limit and uses the library's extended range. _AK4522 behavior, from the ak4522 library._ Library: [DacStream](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/features.md#dacstream), [Extended DAC-rate range](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/features.md#extended-dac-rate-range).
+- **Sample format** (`sampleFormat`): The word length of the test synth's samples: 20-bit, the chip's full input, or 16-bit. _From the ak4522 library; not a chip control._ Library: [DacStream](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/features.md#dacstream).
+
+**Test synth (not part of the chip).**
+
+- **Waveform** (`waveform`): The test synth's oscillator shape. _Plugin behavior; not part of the AK4522._
+- **Attack** (`attack`): The test synth's fade-in time at the start of each note. _Plugin behavior; not part of the AK4522._
+- **Release** (`release`): The test synth's fade-out time after each note ends. _Plugin behavior; not part of the AK4522._
+
+### Both plugins
+
+**Chip pins.**
+
+- **De-emphasis** (`deemphasis`): The chip's 50/15 us de-emphasis filter for 32, 44.1, or 48 kHz material, selected as the DEM pins would. _AK4522 behavior, from the ak4522 library._ Library: [De-emphasis](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/features.md#de-emphasis).
+- **Soft mute** (`softMute`): Ramps the output to silence over 1024 DAC frames, and back over the same time when released, as the SMUTE pin does. _AK4522 behavior, from the ak4522 library._ Library: [Soft mute](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/features.md#soft-mute).
+
+**Model.**
+
+- **Profile** (`profile`): Specification is the clean, deterministic model of the datasheet response. NominalAnalog adds the synthetic imperfections switched below. _From the ak4522 library; not a chip control._ Library: [Profiles and options](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/integration.md#profiles-and-options).
+
+**Analog imperfections (NominalAnalog only).**
+
+- **Noise** (`noise`): Synthetic noise at the datasheet's typical level. NominalAnalog only. While it plays, the plugin's tail is infinite. _From the ak4522 library; not a chip control._ Library: [NominalAnalog noise](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/features.md#nominalanalog-noise), [profile report](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/analog_profile.md).
+- **Distortion** (`distortion`): Synthetic 2nd and 3rd harmonic distortion at the datasheet's typical level. NominalAnalog only. _From the ak4522 library; not a chip control._ Library: [NominalAnalog output stage](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/features.md#nominalanalog-output-stage).
+- **Channel mismatch** (`mismatch`): A fixed 0.2 dB gain difference between the channels. NominalAnalog only. _From the ak4522 library; not a chip control._ Library: [NominalAnalog output stage](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/features.md#nominalanalog-output-stage).
+- **Crosstalk** (`crosstalk`): Leakage between the channels that rises with frequency, like capacitive coupling. NominalAnalog only. _From the ak4522 library; not a chip control._ Library: [NominalAnalog output stage](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/features.md#nominalanalog-output-stage).
+- **DC offset** (`dcOffset`): A small DC offset on the DAC output. NominalAnalog only; the ADC and the Fig.11 circuit remove it. _From the ak4522 library; not a chip control._ Library: [NominalAnalog output stage](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/features.md#nominalanalog-output-stage).
+
+**Board circuit (not part of the chip).**
+
+- **Fig.11 output circuit** (`outputCircuit`): The datasheet's Fig.11 board circuit after the chip: two 0.589 Hz high-pass sections around a gain of -1.8 (+5.1 dB). Not part of the chip. _From the ak4522 library; not a chip control._ Library: [Example output circuit](https://github.com/remix1201/ak4522/blob/v0.1.0/docs/features.md#example-output-circuit-fig11).
+
+**Plugin (not part of the chip).** Mix, Delta listen, and Bypass are in the AK4522 DAC only.
+
+- **Output gain** (`outputGain`): Level after the chip and the Fig.11 circuit, smoothed over 20 ms. _Plugin behavior; not part of the AK4522._
+- **Mix** (`mix`): Balance of processed and dry signal. The dry signal is delayed by the reported latency so the two line up. _Plugin behavior; not part of the AK4522._
+- **Delta listen** (`delta`): Plays the processed signal minus the aligned dry signal: only what the chip changes. _Plugin behavior; not part of the AK4522._
+- **Bypass** (`bypass`): Passes the input through, delayed by the reported latency, so switching does not shift the timing. _Plugin behavior; not part of the AK4522._
+
 ## Timing
 
 - **Pin events:** a change of `deemphasis` or `softMute` is sent at the start of the block in which the host delivers it. JUCE gives one value per block, so a change cannot be placed inside a block; with small host buffers the error is small. In the synth, the event acts on the first DAC frame of the next source request.

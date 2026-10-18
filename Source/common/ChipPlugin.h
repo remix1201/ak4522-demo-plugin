@@ -5,7 +5,7 @@
 
 // What both demo plugins share: the chip parameters, versioned state, the
 // off-thread re-preparation that configuration changes need, and a generic
-// editor with a status line. Parameter IDs and the state schema are listed in
+// editor with grouped controls, tooltips, and a status line. Parameter IDs and the state schema are listed in
 // docs/parameters.md; keep the two in step.
 
 #include <ak4522/ak4522.hpp>
@@ -16,6 +16,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <vector>
 
@@ -53,8 +54,11 @@ public:
                std::vector<juce::String> prepareParameterIds);
     ~ChipPlugin() override;
 
-    // The chip parameters both plugins share.
+    // The chip parameters both plugins share, in their groups.
     static void addChipParameters(Layout& layout);
+    // The "Plugin" group, holding output gain; a plugin adds its own host
+    // parameters to it before adding it to the layout last.
+    static std::unique_ptr<juce::AudioProcessorParameterGroup> pluginGroup();
 
     // State: the parameter tree plus schema, plugin kind, and noise seed.
     void getStateInformation(juce::MemoryBlock& dest) override;

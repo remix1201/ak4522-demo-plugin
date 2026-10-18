@@ -195,3 +195,18 @@ TEST_CASE("Synth state round-trips and effect state is rejected")
     CHECK(test::same(test::get(c, id::clock), 2.0f));
     CHECK(c.statusText().contains("Saved state ignored"));
 }
+
+TEST_CASE("Every parameter is grouped and described as in docs/parameters.md")
+{
+    auto p = make(48000.0);
+    test::checkDescriptions(*p);
+}
+
+TEST_CASE("The editor opens")
+{
+    auto p = make(48000.0);
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p->createEditor());
+    REQUIRE(editor != nullptr);
+    CHECK(editor->getWidth() > 0);
+    CHECK(editor->getHeight() > 0);
+}

@@ -308,3 +308,18 @@ TEST_CASE("Tail: finite settling without noise, infinite with it")
     noisy.prepareToPlay(rate, 512);
     CHECK(std::isinf(noisy.getTailLengthSeconds()));
 }
+
+TEST_CASE("Every parameter is grouped and described as in docs/parameters.md")
+{
+    auto p = make();
+    test::checkDescriptions(*p);
+}
+
+TEST_CASE("The editor opens")
+{
+    auto p = make();
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p->createEditor());
+    REQUIRE(editor != nullptr);
+    CHECK(editor->getWidth() > 0);
+    CHECK(editor->getHeight() > 0);
+}

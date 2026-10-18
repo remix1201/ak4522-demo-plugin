@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "common/Descriptions.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -41,6 +43,29 @@ inline float get(juce::AudioProcessor& p, const char* parameterId)
     }
     FAIL("no parameter " << parameterId);
     return 0.0f;
+}
+
+// Every parameter sits in a group and has a description, and
+// docs/parameters.md carries that description and its origin word for word,
+// in the form "(`id`): text _origin_".
+inline void checkDescriptions(juce::AudioProcessor& p)
+{
+    const auto docs = juce::File(AK4522_DEMO_PARAMETERS_DOC).loadFileAsString();
+    REQUIRE(docs.isNotEmpty());
+    for (const auto* node : p.getParameterTree()) {
+        CHECK(node->getGroup() != nullptr);
+    }
+    for (auto* parameter : p.getParameters()) {
+        const auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(parameter);
+        REQUIRE(ranged != nullptr);
+        const auto id = ranged->getParameterID();
+        const auto* d = ak4522demo::findDescription(id);
+        INFO("parameter " << id);
+        REQUIRE(d != nullptr);
+        const auto line = "(`" + id + "`): " + d->text + " _" + ak4522demo::originText(d->origin) + "_";
+        INFO("expected in docs/parameters.md: " << line);
+        CHECK(docs.contains(line));
+    }
 }
 
 inline bool same(float a, float b)

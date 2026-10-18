@@ -14,20 +14,24 @@ ChipPlugin::Layout effectLayout()
 {
     using namespace juce;
     ChipPlugin::Layout layout;
-    layout.add(std::make_unique<AudioParameterChoice>(
+    auto converter = std::make_unique<AudioProcessorParameterGroup>("converter", "Converter", "|");
+    converter->addChild(std::make_unique<AudioParameterChoice>(
         ParameterID{id::dacRate, 1}, "DAC rate",
         StringArray{"16 kHz", "22.05 kHz", "24 kHz", "32 kHz", "44.1 kHz", "48 kHz"}, 4));
-    layout.add(std::make_unique<AudioParameterChoice>(ParameterID{id::inputResolution, 1}, "Input resolution",
-                                                      StringArray{"20-bit", "16-bit"}, 0));
-    layout.add(std::make_unique<AudioParameterBool>(ParameterID{id::inputDither, 1}, "Input dither", false));
-    layout.add(std::make_unique<AudioParameterChoice>(ParameterID{id::path, 1}, "Path",
-                                                      StringArray{"DAC", "DAC into ADC", "ADC"}, 0));
+    converter->addChild(std::make_unique<AudioParameterChoice>(ParameterID{id::inputResolution, 1},
+                                                               "Input resolution", StringArray{"20-bit", "16-bit"}, 0));
+    converter->addChild(std::make_unique<AudioParameterBool>(ParameterID{id::inputDither, 1}, "Input dither", false));
+    converter->addChild(std::make_unique<AudioParameterChoice>(ParameterID{id::path, 1}, "Path",
+                                                               StringArray{"DAC", "DAC into ADC", "ADC"}, 0));
+    layout.add(std::move(converter));
     ChipPlugin::addChipParameters(layout);
-    layout.add(std::make_unique<AudioParameterFloat>(ParameterID{id::mix, 1}, "Mix",
-                                                     NormalisableRange<float>{0.0f, 100.0f, 0.1f}, 100.0f,
-                                                     AudioParameterFloatAttributes{}.withLabel("%")));
-    layout.add(std::make_unique<AudioParameterBool>(ParameterID{id::delta, 1}, "Delta listen", false));
-    layout.add(std::make_unique<AudioParameterBool>(ParameterID{id::bypass, 1}, "Bypass", false));
+    auto host = ChipPlugin::pluginGroup();
+    host->addChild(std::make_unique<AudioParameterFloat>(ParameterID{id::mix, 1}, "Mix",
+                                                         NormalisableRange<float>{0.0f, 100.0f, 0.1f}, 100.0f,
+                                                         AudioParameterFloatAttributes{}.withLabel("%")));
+    host->addChild(std::make_unique<AudioParameterBool>(ParameterID{id::delta, 1}, "Delta listen", false));
+    host->addChild(std::make_unique<AudioParameterBool>(ParameterID{id::bypass, 1}, "Bypass", false));
+    layout.add(std::move(host));
     return layout;
 }
 
