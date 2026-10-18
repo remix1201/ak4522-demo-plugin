@@ -44,4 +44,4 @@ A change is complete when all of these pass:
 4. `auval` on both AU plugins (macOS).
 5. CI on macOS and Windows.
 
-Smoke tests in hosts (FL Studio and Ableton Live) are done by the project owner. Record their results in `docs/features.md` with the host version, and never record a host result that was not reported.
+Smoke tests in hosts (FL Studio and Ableton Live) are done by the project owner. Record their results in `docs/features.md` with the host version and the plugin's version line (shown at the bottom of the editor), and never record a host result that was not reported.

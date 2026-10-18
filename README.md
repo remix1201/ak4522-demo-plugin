@@ -9,7 +9,7 @@ Two JUCE plugins that show the [ak4522](https://github.com/remix1201/ak4522) lib
 
 **Status: alpha, not released.** Both plugins build and pass their tests, pluginval at strictness level 10, and strict `auval`, on macOS. Windows builds run in CI. Both plugins open in FL Studio 26.1.7 and Ableton Live 12 Lite 12.4.6; the rest of the host smoke tests are pending. See [docs/features.md](docs/features.md).
 
-Formats: VST3 on macOS and Windows, and AU on macOS. The interface lists the controls in groups, with a status line showing the configuration and latency. Hover over a control for a one-line description that says whether it is AK4522 behavior, a library feature, or plugin behavior; [docs/parameters.md](docs/parameters.md#what-each-control-does) has the same descriptions with links to the library's documentation.
+Formats: VST3 on macOS and Windows, and AU on macOS. The interface lists the controls in groups, with a status line showing the configuration and latency. Hover over a control for a one-line description that says whether it is AK4522 behavior, a library feature, or plugin behavior; [docs/parameters.md](docs/parameters.md#what-each-control-does) has the same descriptions with links to the library's documentation. The bottom line names the build: plugin version, library version, and the git commit it was built from, marked "-dirty" if built with uncommitted changes. Quote it when you report a host result.
 
 ## What the plugins add
 

@@ -3,6 +3,7 @@
 
 #include "common/ChipPlugin.h"
 
+#include "BuildInfo.h"
 #include "common/Descriptions.h"
 
 #include <cmath>
@@ -150,8 +151,15 @@ public:
         view_.setViewedComponent(&list_, false);
         view_.setScrollBarsShown(true, false);
         addAndMakeVisible(view_);
+        version_.setText(ChipPlugin::versionText(), juce::dontSendNotification);
+        version_.setJustificationType(juce::Justification::centredLeft);
+        version_.setFont(juce::FontOptions(12.0f));
+        version_.setColour(juce::Label::textColourId,
+                           getLookAndFeel().findColour(juce::Label::textColourId).withAlpha(0.6f));
+        addAndMakeVisible(version_);
         const int scrollBar = view_.getScrollBarThickness();
-        setSize(ParameterList::width + scrollBar, std::min(list_.getHeight(), maxListHeight) + statusHeight);
+        setSize(ParameterList::width + scrollBar,
+                statusHeight + std::min(list_.getHeight(), maxListHeight) + versionHeight);
         startTimerHz(4);
     }
 
@@ -159,6 +167,7 @@ public:
     {
         auto area = getLocalBounds();
         status_.setBounds(area.removeFromTop(statusHeight).reduced(8, 0));
+        version_.setBounds(area.removeFromBottom(versionHeight).reduced(8, 0));
         view_.setBounds(area);
         list_.setSize(view_.getMaximumVisibleWidth(), list_.getHeight());
     }
@@ -171,6 +180,7 @@ public:
 private:
     static constexpr int statusHeight = 28;
     static constexpr int maxListHeight = 560;
+    static constexpr int versionHeight = 22;
 
     void timerCallback() override { status_.setText(plugin_.statusText(), juce::dontSendNotification); }
 
@@ -178,6 +188,7 @@ private:
     juce::Label status_;
     ParameterList list_;
     juce::Viewport view_;
+    juce::Label version_;
     juce::TooltipWindow tooltips_{this, 500};
 };
 
@@ -406,6 +417,13 @@ juce::String ChipPlugin::statusText() const
 {
     const juce::ScopedLock lock(statusLock_);
     return stateNote_.isEmpty() ? status_ : status_ + "  |  " + stateNote_;
+}
+
+juce::String ChipPlugin::versionText()
+{
+    const auto library = ak4522::versionString();
+    return juce::String(JucePlugin_Name) + " " + JucePlugin_VersionString + "  |  ak4522 "
+           + juce::String(library.data(), library.size()) + "  |  commit " + build::commit;
 }
 
 juce::AudioProcessorEditor* ChipPlugin::createEditor()

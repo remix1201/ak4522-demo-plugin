@@ -68,6 +68,11 @@ public:
     // is silent. Message thread.
     juce::String statusText() const;
 
+    // Which build this is, for the editor: plugin version, library version,
+    // and the commit built from, for example
+    // "AK4522 DAC 0.1.0  |  ak4522 0.1.0  |  commit b129e44".
+    static juce::String versionText();
+
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
     const juce::String getName() const override { return JucePlugin_Name; }

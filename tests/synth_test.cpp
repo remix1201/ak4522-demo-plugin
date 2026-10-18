@@ -210,3 +210,13 @@ TEST_CASE("The editor opens")
     CHECK(editor->getWidth() > 0);
     CHECK(editor->getHeight() > 0);
 }
+
+TEST_CASE("The version line names the plugin, library, and commit versions")
+{
+    const auto text = ak4522demo::ChipPlugin::versionText();
+    const auto library = ak4522::versionString();
+    CHECK(text.startsWith(juce::String(JucePlugin_Name) + " " + JucePlugin_VersionString));
+    CHECK(text.contains("ak4522 " + juce::String(library.data(), library.size())));
+    CHECK(text.contains("commit "));
+    CHECK(!text.endsWith("commit "));
+}

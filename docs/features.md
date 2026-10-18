@@ -22,6 +22,7 @@ Last substantive update: 2026-10-18. Library: ak4522 `v0.1.0`. JUCE: 9.0.4.
   - JUCE 9.0.4 is fetched by commit and SHA-256.
   - The library comes from its `v0.1.0` tag through FetchContent, the documented outside-user path.
   - JUCE's recommended warning flags are on; project code builds without warnings.
+  - The editor's bottom line shows the plugin version, the library version (`ak4522::versionString()`), and the git commit, refreshed at every build by `cmake/BuildInfo.cmake`. "-dirty" marks uncommitted changes to tracked files; "unknown" means the source is not a git checkout.
 - **Validation:** macOS (Apple Silicon, AppleClang), Release build. Windows: by CI.
 - **Limitations:** no installers and no code signing or notarization. Plugins are built for the build machine's architecture only.
 - **Updated:** 2026-10-18.
@@ -103,5 +104,5 @@ Last substantive update: 2026-10-18. Library: ak4522 `v0.1.0`. JUCE: 9.0.4.
   | FL Studio                     | 26.1.7 [build 5421]                    | opens      | opens        | 2026-10-18    |
   | Ableton Live 12 Lite          | 12.4.6 (Build: 2026-09-10_0de5c8fa9a)  | opens      | opens        | 2026-10-18    |
 
-- **Not yet reported:** playback, automation, save and reload, and latency against emitted audio, in either host. Plugin format (VST3 or AU) and operating system were not stated.
+- **Not yet reported:** playback, automation, save and reload, and latency against emitted audio, in either host. Plugin format (VST3 or AU) and operating system were not stated. These results predate the editor's version line, so the plugin build they used is not recorded.
 - **Updated:** 2026-10-18.
