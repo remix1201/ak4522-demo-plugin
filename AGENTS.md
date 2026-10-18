@@ -22,8 +22,14 @@ The library is the product; this project is one of its users. It defines no chip
   - a declared tail, infinite while noise plays;
   - no silent-input shortcuts.
 - Real-time safety: no allocation, locks, I/O, or blocking on the audio thread. Configuration changes re-prepare the chip on the message thread, under `suspendProcessing`.
-- Saved state carries `schema`. Bump `schemaVersion` in `Source/common/ChipPlugin.h` whenever a parameter is added, removed, renamed, or changes meaning, and update `docs/parameters.md` in the same change. Alpha: no migration of older state.
-- Keep `docs/parameters.md`, `docs/features.md`, and `README.md` in step with the code in every branch.
+- Saved state carries `schema`. Bump `schemaVersion` in `Source/common/ChipPlugin.h` whenever a parameter is added, removed, or changes meaning, or its ID changes, and update `docs/parameters.md` in the same change. Changing a parameter's display name, description, or group does not change the schema. Alpha: no migration of older state.
+- Each parameter has one description, in `Source/common/Descriptions.h`. It is the editor's tooltip, and the section "What each control does" in `docs/parameters.md` uses the same wording; the tests check this.
+  - Every description is labeled with its origin: AK4522 behavior, a library feature that is not a chip control, or plugin behavior.
+  - A chip or library description is one line. `docs/parameters.md` links it to the library's documentation at the pinned tag, and it never restates chip behavior beyond that line. If the library's documentation is missing or unclear, fix it in the library, not here.
+  - A plugin description is written here in full and says it is plugin behavior, not AK4522 behavior.
+  - Tooltips carry no links; the links are in `docs/parameters.md` only.
+  - When the pinned tag moves, update the links and check that the descriptions still match the library.
+- Keep `docs/parameters.md`, `docs/features.md`, `README.md`, and the parameter descriptions in step with the code in every branch.
 - Create a feature branch for each change. Merge and push only when the project owner asks.
 - Commit messages and PR descriptions carry no AI attribution trailers.
 - Documentation uses the Oxford comma and no em dashes.
@@ -38,4 +44,4 @@ A change is complete when all of these pass:
 4. `auval` on both AU plugins (macOS).
 5. CI on macOS and Windows.
 
-Smoke tests in hosts (FL Studio and Ableton Live) are done by the project owner. Record their results in `docs/features.md` with the host version, and never record a host result that was not reported.
+Smoke tests in hosts (FL Studio and Ableton Live) are done by the project owner. Record their results in `docs/features.md` with the host version and the plugin's version line (shown at the bottom of the editor), and never record a host result that was not reported.

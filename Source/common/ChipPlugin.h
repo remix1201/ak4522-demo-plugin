@@ -5,7 +5,7 @@
 
 // What both demo plugins share: the chip parameters, versioned state, the
 // off-thread re-preparation that configuration changes need, and a generic
-// editor with a status line. Parameter IDs and the state schema are listed in
+// editor with grouped controls, tooltips, and a status line. Parameter IDs and the state schema are listed in
 // docs/parameters.md; keep the two in step.
 
 #include <ak4522/ak4522.hpp>
@@ -16,6 +16,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <vector>
 
@@ -41,6 +42,15 @@ inline constexpr const char* outputGain = "outputGain";
 // meaning change; older state is then rejected, not reinterpreted (REQ-VST-01).
 inline constexpr int schemaVersion = 1;
 
+// The editor reads parameter values on a timer rather than listening, so
+// that nothing it does runs on the audio thread. Tests call pollParameters()
+// to update it at once instead of waiting for the timer. Message thread.
+class ParameterPolling {
+public:
+    virtual ~ParameterPolling() = default;
+    virtual void pollParameters() = 0;
+};
+
 // Base of both plugins. Derived classes add their own parameters through
 // createLayout's `extra`, and implement prepareChip() and the processing.
 class ChipPlugin : public juce::AudioProcessor,
@@ -53,8 +63,11 @@ public:
                std::vector<juce::String> prepareParameterIds);
     ~ChipPlugin() override;
 
-    // The chip parameters both plugins share.
+    // The chip parameters both plugins share, in their groups.
     static void addChipParameters(Layout& layout);
+    // The "Plugin" group, holding output gain; a plugin adds its own host
+    // parameters to it before adding it to the layout last.
+    static std::unique_ptr<juce::AudioProcessorParameterGroup> pluginGroup();
 
     // State: the parameter tree plus schema, plugin kind, and noise seed.
     void getStateInformation(juce::MemoryBlock& dest) override;
@@ -63,6 +76,16 @@ public:
     // One line for the editor: configuration and latency, or why the plugin
     // is silent. Message thread.
     juce::String statusText() const;
+
+    // Which build this is, for the editor: plugin version, library version,
+    // and the commit built from, for example
+    // "AK4522 DAC 0.1.0  |  ak4522 0.1.0  |  commit b129e44".
+    static juce::String versionText();
+
+    // Why a parameter has no effect with the current settings, for the
+    // editor, or empty if it has one. The analog options do nothing under
+    // the Specification profile; a plugin adds its own cases.
+    virtual juce::String inactiveReason(const juce::String& parameterId) const;
 
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }

@@ -18,7 +18,8 @@ foreach(plugin Effect Synth)
     target_include_directories(ak4522_demo_${name}_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
         $<TARGET_PROPERTY:AK4522${plugin},INCLUDE_DIRECTORIES>)
     target_compile_definitions(ak4522_demo_${name}_tests PRIVATE
-        $<TARGET_PROPERTY:AK4522${plugin},COMPILE_DEFINITIONS>)
+        $<TARGET_PROPERTY:AK4522${plugin},COMPILE_DEFINITIONS>
+        AK4522_DEMO_PARAMETERS_DOC="${PROJECT_SOURCE_DIR}/docs/parameters.md")
     if(NOT MSVC) # the tests compare exactly on purpose: bitwise block-size independence
         target_compile_options(ak4522_demo_${name}_tests PRIVATE -Wno-float-equal)
     endif()

@@ -44,8 +44,16 @@ set(AK4522_DEMO_MANUFACTURER_CODE Ak45)
 # Code shared by both plugins: parameters, state, compensated bypass, the
 # status editor. Header-only parts plus one translation unit per plugin.
 add_library(ak4522_demo_common INTERFACE)
-target_include_directories(ak4522_demo_common INTERFACE Source)
+target_include_directories(ak4522_demo_common INTERFACE Source "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(ak4522_demo_common INTERFACE ak4522::ak4522)
+
+# generated/BuildInfo.h: the commit shown in the editor, refreshed every build.
+add_custom_target(ak4522_demo_build_info
+    COMMAND "${CMAKE_COMMAND}" -DSOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+            -DOUTPUT="${CMAKE_CURRENT_BINARY_DIR}/generated/BuildInfo.h"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/BuildInfo.cmake"
+    BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/generated/BuildInfo.h"
+    COMMENT "Recording the build commit")
 
 function(ak4522_demo_plugin target)
     cmake_parse_arguments(ARG "" "PRODUCT_NAME;PLUGIN_CODE;BUNDLE_ID;IS_SYNTH" "SOURCES" ${ARGN})
@@ -64,6 +72,7 @@ function(ak4522_demo_plugin target)
         NEEDS_WEB_BROWSER FALSE
         NEEDS_CURL FALSE)
     target_sources(${target} PRIVATE Source/common/ChipPlugin.cpp ${ARG_SOURCES})
+    add_dependencies(${target} ak4522_demo_build_info)
     target_compile_definitions(${target} PUBLIC
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0

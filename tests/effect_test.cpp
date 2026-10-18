@@ -11,9 +11,11 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <array>
 #include <cmath>
 #include <limits>
 #include <random>
+#include <thread>
 
 using ak4522demo::EffectProcessor;
 namespace id = ak4522demo::id;
@@ -307,4 +309,133 @@ TEST_CASE("Tail: finite settling without noise, infinite with it")
     noisy.setRateAndBufferSizeDetails(rate, 512);
     noisy.prepareToPlay(rate, 512);
     CHECK(std::isinf(noisy.getTailLengthSeconds()));
+}
+
+TEST_CASE("Every parameter is grouped and described as in docs/parameters.md")
+{
+    auto p = make();
+    test::checkDescriptions(*p);
+}
+
+TEST_CASE("The editor opens")
+{
+    auto p = make();
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p->createEditor());
+    REQUIRE(editor != nullptr);
+    CHECK(editor->getWidth() > 0);
+    CHECK(editor->getHeight() > 0);
+}
+
+TEST_CASE("The version line names the plugin, library, and commit versions")
+{
+    const auto text = ak4522demo::ChipPlugin::versionText();
+    const auto library = ak4522::versionString();
+    CHECK(text.startsWith(juce::String(JucePlugin_Name) + " " + JucePlugin_VersionString));
+    CHECK(text.contains("ak4522 " + juce::String(library.data(), library.size())));
+    CHECK(text.contains("commit "));
+    CHECK(!text.endsWith("commit "));
+}
+
+TEST_CASE("The analog options are greyed out under the Specification profile")
+{
+    auto p = make();
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p->createEditor());
+    const std::array<const char*, 6> analog{"analog", "noise", "distortion", "mismatch", "crosstalk", "dcOffset"};
+    test::set(*p, "profile", 0.0f); // Specification
+    test::poll(*editor);
+    for (const auto* componentId : analog) {
+        INFO(componentId);
+        auto* c = test::findComponent(*editor, componentId);
+        REQUIRE(c != nullptr);
+        CHECK(!c->isEnabled());
+    }
+    CHECK(test::findComponent(*editor, "outputCircuit")->isEnabled());
+    test::set(*p, "profile", 1.0f); // NominalAnalog
+    test::poll(*editor);
+    for (const auto* componentId : analog) {
+        INFO(componentId);
+        CHECK(test::findComponent(*editor, componentId)->isEnabled());
+    }
+}
+
+TEST_CASE("DC offset is greyed out on the ADC path")
+{
+    auto p = make();
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p->createEditor());
+    test::set(*p, "profile", 1.0f); // NominalAnalog
+    test::poll(*editor);
+    auto* dcOffset = test::findComponent(*editor, "dcOffset");
+    REQUIRE(dcOffset != nullptr);
+    test::set(*p, id::path, 2.0f); // ADC
+    test::poll(*editor);
+    CHECK(!dcOffset->isEnabled());
+    CHECK(p->inactiveReason("dcOffset").contains("ADC"));
+    CHECK(test::findComponent(*editor, "noise")->isEnabled());
+    CHECK(test::findComponent(*editor, "analog")->isEnabled());
+    test::set(*p, id::path, 1.0f); // DAC into ADC: the DAC's offset is modeled
+    test::poll(*editor);
+    CHECK(dcOffset->isEnabled());
+    test::set(*p, id::path, 0.0f); // DAC
+    test::poll(*editor);
+    CHECK(dcOffset->isEnabled());
+    CHECK(p->inactiveReason("dcOffset").isEmpty());
+}
+
+TEST_CASE("The editor shows changes made on another thread when it polls, and only then")
+{
+    auto p = make();
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p->createEditor());
+    auto* mute = test::control<juce::ToggleButton>(*editor, "softMute");
+    auto* path = test::control<juce::ComboBox>(*editor, id::path);
+    auto* mix = test::control<juce::Slider>(*editor, id::mix);
+    REQUIRE(mute != nullptr);
+    REQUIRE(path != nullptr);
+    REQUIRE(mix != nullptr);
+
+    // As a host's automation would, off the message thread.
+    std::thread automation([&p] {
+        test::set(*p, "softMute", 1.0f);
+        test::set(*p, id::path, 2.0f);
+        test::set(*p, id::mix, 25.0f);
+    });
+    automation.join();
+    // No listener updates the editor, on this thread or any other: a JUCE
+    // attachment would have, and would post messages from the audio thread.
+    test::set(*p, "deemphasis", 2.0f);
+    CHECK(!mute->getToggleState());
+    CHECK(path->getSelectedItemIndex() == 0);
+    CHECK(test::control<juce::ComboBox>(*editor, "deemphasis")->getSelectedItemIndex() == 0);
+
+    test::poll(*editor);
+    CHECK(mute->getToggleState());
+    CHECK(path->getSelectedItemIndex() == 2);
+    CHECK(test::control<juce::ComboBox>(*editor, "deemphasis")->getSelectedItemIndex() == 2);
+    CHECK(mix->getTextFromValue(mix->getValue()) == "25.0 %");
+}
+
+TEST_CASE("Edits in the editor reach the parameters as complete gestures")
+{
+    struct Gestures : juce::AudioProcessorListener {
+        int begun = 0;
+        int ended = 0;
+        void audioProcessorParameterChanged(juce::AudioProcessor*, int, float) override {}
+        void audioProcessorChanged(juce::AudioProcessor*, const ChangeDetails&) override {}
+        void audioProcessorParameterChangeGestureBegin(juce::AudioProcessor*, int) override { ++begun; }
+        void audioProcessorParameterChangeGestureEnd(juce::AudioProcessor*, int) override { ++ended; }
+    } gestures;
+
+    auto p = make();
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p->createEditor());
+    p->addListener(&gestures);
+    test::control<juce::ToggleButton>(*editor, "softMute")->setToggleState(true, juce::sendNotificationSync);
+    test::control<juce::ComboBox>(*editor, id::path)->setSelectedItemIndex(1, juce::sendNotificationSync);
+    auto* mix = test::control<juce::Slider>(*editor, id::mix);
+    mix->setValue(mix->getValueFromText("40 %"), juce::sendNotificationSync);
+    p->removeListener(&gestures);
+
+    CHECK(test::same(test::get(*p, "softMute"), 1.0f));
+    CHECK(test::same(test::get(*p, id::path), 1.0f));
+    CHECK(test::same(test::get(*p, id::mix), 40.0f));
+    CHECK(gestures.begun == 3);
+    CHECK(gestures.ended == 3);
 }

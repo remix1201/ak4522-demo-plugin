@@ -16,20 +16,25 @@ ChipPlugin::Layout synthLayout()
 {
     using namespace juce;
     ChipPlugin::Layout layout;
-    layout.add(std::make_unique<AudioParameterChoice>(
+    auto source = std::make_unique<AudioProcessorParameterGroup>("source", "Source", "|");
+    source->addChild(std::make_unique<AudioParameterChoice>(
         ParameterID{id::clock, 1}, "Source clock",
         StringArray{"32 kHz", "44.1 kHz", "48 kHz", "112 MHz / 2304 (48.611 kHz, extended)"}, 2));
-    layout.add(std::make_unique<AudioParameterChoice>(ParameterID{id::sampleFormat, 1}, "Sample format",
-                                                      StringArray{"20-bit", "16-bit"}, 0));
-    layout.add(std::make_unique<AudioParameterChoice>(ParameterID{id::waveform, 1}, "Waveform",
-                                                      StringArray{"Sine", "Saw", "Square"}, 1));
-    layout.add(std::make_unique<AudioParameterFloat>(ParameterID{id::attack, 1}, "Attack",
-                                                     NormalisableRange<float>{1.0f, 2000.0f, 1.0f, 0.4f}, 5.0f,
-                                                     AudioParameterFloatAttributes{}.withLabel("ms")));
-    layout.add(std::make_unique<AudioParameterFloat>(ParameterID{id::release, 1}, "Release",
-                                                     NormalisableRange<float>{5.0f, 5000.0f, 1.0f, 0.4f}, 200.0f,
-                                                     AudioParameterFloatAttributes{}.withLabel("ms")));
+    source->addChild(std::make_unique<AudioParameterChoice>(ParameterID{id::sampleFormat, 1}, "Sample format",
+                                                            StringArray{"20-bit", "16-bit"}, 0));
+    layout.add(std::move(source));
+    auto synth = std::make_unique<AudioProcessorParameterGroup>("synth", "Test synth (not part of the chip)", "|");
+    synth->addChild(std::make_unique<AudioParameterChoice>(ParameterID{id::waveform, 1}, "Waveform",
+                                                           StringArray{"Sine", "Saw", "Square"}, 1));
+    synth->addChild(std::make_unique<AudioParameterFloat>(ParameterID{id::attack, 1}, "Attack",
+                                                          NormalisableRange<float>{1.0f, 2000.0f, 1.0f, 0.4f}, 5.0f,
+                                                          AudioParameterFloatAttributes{}.withLabel("ms")));
+    synth->addChild(std::make_unique<AudioParameterFloat>(ParameterID{id::release, 1}, "Release",
+                                                          NormalisableRange<float>{5.0f, 5000.0f, 1.0f, 0.4f}, 200.0f,
+                                                          AudioParameterFloatAttributes{}.withLabel("ms")));
+    layout.add(std::move(synth));
     ChipPlugin::addChipParameters(layout);
+    layout.add(ChipPlugin::pluginGroup());
     return layout;
 }
 

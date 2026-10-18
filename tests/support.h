@@ -3,8 +3,12 @@
 
 #pragma once
 
+#include "common/ChipPlugin.h"
+#include "common/Descriptions.h"
+
 #include <catch2/catch_test_macros.hpp>
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 
 #include <cmath>
 #include <complex>
@@ -41,6 +45,65 @@ inline float get(juce::AudioProcessor& p, const char* parameterId)
     }
     FAIL("no parameter " << parameterId);
     return 0.0f;
+}
+
+// Every parameter sits in a group and has a description, and
+// docs/parameters.md carries that description and its origin word for word,
+// in the form "(`id`): text _origin_".
+inline void checkDescriptions(juce::AudioProcessor& p)
+{
+    const auto docs = juce::File(AK4522_DEMO_PARAMETERS_DOC).loadFileAsString();
+    REQUIRE(docs.isNotEmpty());
+    for (const auto* node : p.getParameterTree()) {
+        CHECK(node->getGroup() != nullptr);
+    }
+    for (auto* parameter : p.getParameters()) {
+        const auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(parameter);
+        REQUIRE(ranged != nullptr);
+        const auto id = ranged->getParameterID();
+        const auto* d = ak4522demo::findDescription(id);
+        INFO("parameter " << id);
+        REQUIRE(d != nullptr);
+        const auto line = "(`" + id + "`): " + d->text + " _" + ak4522demo::originText(d->origin) + "_";
+        INFO("expected in docs/parameters.md: " << line);
+        CHECK(docs.contains(line));
+    }
+}
+
+// The component with this ID anywhere inside `parent`, or nullptr.
+inline juce::Component* findComponent(juce::Component& parent, const juce::String& componentId)
+{
+    for (auto* child : parent.getChildren()) {
+        if (child->getComponentID() == componentId) {
+            return child;
+        }
+        if (auto* found = findComponent(*child, componentId)) {
+            return found;
+        }
+    }
+    return nullptr;
+}
+
+// Updates an open editor from the parameters now, as its timer would.
+inline void poll(juce::AudioProcessorEditor& editor)
+{
+    auto* polling = dynamic_cast<ak4522demo::ParameterPolling*>(&editor);
+    REQUIRE(polling != nullptr);
+    polling->pollParameters();
+}
+
+// The control of type T in the editor row for a parameter, or nullptr.
+template <typename T>
+T* control(juce::Component& editor, const juce::String& parameterId)
+{
+    if (auto* row = findComponent(editor, parameterId)) {
+        for (auto* child : row->getChildren()) {
+            if (auto* c = dynamic_cast<T*>(child)) {
+                return c;
+            }
+        }
+    }
+    return nullptr;
 }
 
 inline bool same(float a, float b)

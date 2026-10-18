@@ -5,8 +5,11 @@
 # section 3). The AU checks run on macOS only.
 name: CI
 
+# Pushes to main, and every pull request, run once each. Other branches run
+# through a pull request or by hand (workflow_dispatch).
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -21,11 +24,21 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # A hang fails here instead of holding CI for GitHub's default of 6 hours.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-      - name: Build
+      # One job per core. A bare --parallel makes make (macOS) run without a
+      # limit; the six LTO links need 1.1 to 1.4 GB each, more together than
+      # the runner's memory, and the build swapped for 40 minutes. MSBuild
+      # (Windows) already limits itself to the core count.
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: cmake --build build --config Release --parallel "$(sysctl -n hw.ncpu)"
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
         run: cmake --build build --config Release --parallel
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
