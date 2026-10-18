@@ -11,6 +11,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <array>
 #include <cmath>
 #include <limits>
 #include <random>
@@ -332,4 +333,24 @@ TEST_CASE("The version line names the plugin, library, and commit versions")
     CHECK(text.contains("ak4522 " + juce::String(library.data(), library.size())));
     CHECK(text.contains("commit "));
     CHECK(!text.endsWith("commit "));
+}
+
+TEST_CASE("The analog options are greyed out under the Specification profile")
+{
+    auto p = make();
+    std::unique_ptr<juce::AudioProcessorEditor> editor(p->createEditor());
+    const std::array<const char*, 6> analog{"analog", "noise", "distortion", "mismatch", "crosstalk", "dcOffset"};
+    test::set(*p, "profile", 0.0f); // Specification
+    for (const auto* componentId : analog) {
+        INFO(componentId);
+        auto* c = test::findComponent(*editor, componentId);
+        REQUIRE(c != nullptr);
+        CHECK(!c->isEnabled());
+    }
+    CHECK(test::findComponent(*editor, "outputCircuit")->isEnabled());
+    test::set(*p, "profile", 1.0f); // NominalAnalog
+    for (const auto* componentId : analog) {
+        INFO(componentId);
+        CHECK(test::findComponent(*editor, componentId)->isEnabled());
+    }
 }

@@ -17,7 +17,7 @@ Parameter IDs are stable within a state schema. Every parameter has version hint
 | `outputCircuit` | Fig.11 output circuit | off, on                                        | off           | configuration | `exampleOutputCircuit`                              |
 | `outputGain`    | Output gain           | -24 to +12 dB, 0.1 dB steps                    | 0 dB          | host          | after the chip; smoothed over 20 ms                 |
 
-The analog switches only matter with the NominalAnalog profile; with Specification the chip is clean whatever they say.
+The analog switches only matter with the NominalAnalog profile; with Specification the chip is clean whatever they say. The editor greys them out under Specification and says so in their tooltips. Their values are kept, and hosts can still automate them.
 
 ## AK4522 DAC (effect)
 

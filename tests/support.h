@@ -7,6 +7,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 
 #include <cmath>
 #include <complex>
@@ -66,6 +67,20 @@ inline void checkDescriptions(juce::AudioProcessor& p)
         INFO("expected in docs/parameters.md: " << line);
         CHECK(docs.contains(line));
     }
+}
+
+// The component with this ID anywhere inside `parent`, or nullptr.
+inline juce::Component* findComponent(juce::Component& parent, const juce::String& componentId)
+{
+    for (auto* child : parent.getChildren()) {
+        if (child->getComponentID() == componentId) {
+            return child;
+        }
+        if (auto* found = findComponent(*child, componentId)) {
+            return found;
+        }
+    }
+    return nullptr;
 }
 
 inline bool same(float a, float b)
